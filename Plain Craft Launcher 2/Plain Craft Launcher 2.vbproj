@@ -15,6 +15,7 @@
     </TargetFrameworkProfile>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <Deterministic>true</Deterministic>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -30,7 +31,6 @@
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
-    <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -206,9 +206,6 @@
     <Compile Include="Controls\MyIconTextButton.xaml.vb">
       <DependentUpon>MyIconTextButton.xaml</DependentUpon>
     </Compile>
-
-
-
     <Compile Include="Controls\MyVirtualizingElement.vb" />
     <Compile Include="Modules\Base\PclLogger.vb" />
     <Compile Include="Modules\Resource\LocalResourceFile.vb" />
@@ -219,6 +216,10 @@
     <Compile Include="Modules\Resource\LocalResourceLoaders.vb" />
     <Compile Include="Modules\Minecraft\ModModpack.vb" />
     <Compile Include="Modules\ThirdParty\DragHelper.vb" />
+    <Compile Include="Modules\WindowUpdate.vb" />
+    <Compile Include="Modules\ModLink.vb" />
+    <Compile Include="Modules\ModNotice.vb" />
+    <Compile Include="Modules\ModUpdate.vb" />
     <Compile Include="My Project\Resources.Designer.vb">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -495,7 +496,6 @@
       <DependentUpon>FormMain.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-
     <Page Include="Pages\PageInstance\MyLocalModItem.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -777,9 +777,6 @@
     <Resource Include="Images\Blocks\Egg.png" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Images\Heads\Hao_Tian.jpg" />
-  </ItemGroup>
-  <ItemGroup>
     <Resource Include="Images\Skins\Steve.png" />
   </ItemGroup>
   <ItemGroup>
@@ -802,9 +799,6 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Images\Themes\10.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Images\Heads\Patrick.png" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Images\Themes\11.png" />
@@ -849,12 +843,6 @@
     <Resource Include="Images\Icons\NoIcon.png" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Images\Heads\PCL2.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Images\Heads\00ll00.png" />
-  </ItemGroup>
-  <ItemGroup>
     <Resource Include="Images\Heads\bangbang93.png" />
   </ItemGroup>
   <ItemGroup>
@@ -879,13 +867,7 @@
     <Resource Include="Images\Icons\Disabled.png" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Images\Heads\MCBBS.png" />
-  </ItemGroup>
-  <ItemGroup>
     <Resource Include="Images\Blocks\NeoForge.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Images\Heads\z0z0r4.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Imazen.WebP.dll" />
@@ -905,9 +887,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\System.Net.Http.Formatting.dll" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Images\Heads\EasyTier.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\lwjgl-unsafe-agent.jar" />
@@ -944,11 +923,6 @@
       <LogicalName>Microsoft.Win32.Registry.dll</LogicalName>
       <Link>Resources\Microsoft.Win32.Registry.dll</Link>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Images\Heads\ChongQing.png" />
-    <Resource Include="Images\Heads\HerobrineXia.png" />
-
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>

@@ -5,27 +5,17 @@ Public Module ModBase
 
 #Region "声明"
 
-    '下列版本信息由更新器自动修改
-    Public Const VersionBaseName As String = "2.99.0.1" '显示用版本名
+    '版本信息自动读取程序集版本（要改版本号请改 My Project\AssemblyInfo.vb 的 AssemblyVersion）
+    Public ReadOnly VersionBaseName As String =
+        Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() '显示用版本名
     Public Const CommitHash As String = "" 'Commit Hash，由 GitHub Workflow 自动替换
-#If RELEASE Then
-    Public Const VersionCode As Integer = 415 '正式版
-#Else
-    Public Const VersionCode As Integer = 416 '快照版
-#End If
+    '版本号：主×1000000 + 次×10000 + 修订×100 + 编译，与 AssemblyVersion 1.0.4.0 对应
+    Public Const VersionCode As Integer = 1000400
 
     '版本信息
-    Public Const VersionDisplay As String = BuildTypeDisplay & " " & VersionBaseName
-#If DEBUG Then
-    Public Const BuildTypeDisplay As String = "开发版"
-    Public Const BuildType As BuildTypes = BuildTypes.Debug
-#ElseIf RELEASE Then
+    Public ReadOnly VersionDisplay As String = BuildTypeDisplay & " " & VersionBaseName
     Public Const BuildTypeDisplay As String = "正式版"
     Public Const BuildType As BuildTypes = BuildTypes.Release
-#Else
-    Public Const BuildTypeDisplay As String = "快照版"
-    Public Const BuildType As BuildTypes = BuildTypes.Snapshot
-#End If
     Public Enum BuildTypes
         Debug = 100
         Release = 50

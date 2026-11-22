@@ -6,6 +6,22 @@ Public Class PageLaunchRight
     Private Sub Init() Handles Me.Loaded
         PanBack.ScrollToHome()
         PanLog.Visibility = ModeDebug.ToVisibility
+        '公告栏
+        LabNoticeTitle.Text = ModNotice.NoticeTitle
+        '在「公告」标题后面紧跟 NEW 标记
+        If ModNotice.NoticeIsNew AndAlso PanNotice.Inlines.Count = 1 Then
+            PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run("  "))
+            PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run(" NEW ") With {
+                .Background = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFF, &HF1, &HE6)),
+                .Foreground = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFA, &H64, &H0)),
+                .FontSize = 10.5,
+                .FontWeight = Global.System.Windows.FontWeights.Bold,
+                .BaselineAlignment = Global.System.Windows.BaselineAlignment.Center})
+        End If
+        LabFeature.Text = ModNotice.NoticeBadge
+        BadgeFeature.Visibility = If(String.IsNullOrWhiteSpace(ModNotice.NoticeBadge), Visibility.Collapsed, Visibility.Visible)
+        LabNotice.Text = ModNotice.GetNoticeText()
+        PanNotice.Visibility = If(String.IsNullOrWhiteSpace(ModNotice.GetNoticeText()), Visibility.Collapsed, Visibility.Visible)
         '快照版提示
         PanHint.Visibility =
             (BuildType <> BuildTypes.Release AndAlso VersionBranchMain = "Official" AndAlso

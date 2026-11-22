@@ -15,7 +15,7 @@ Friend Module ModSecret
 
 #Region "网络鉴权"
 
-    Public Const RestrictMcDownload As Boolean = True
+    Public Const RestrictMcDownload As Boolean = False
     Friend Function SecretCdnSign(UrlWithMark As String) As String
         If Not UrlWithMark.EndsWithF("{CDN}") Then Return UrlWithMark
         Return UrlWithMark.Replace("{CDN}", "").Replace(" ", "%20")
@@ -145,14 +145,94 @@ Friend Module ModSecret
 
 #Region "更新"
 
-    Friend Sub UpdateCheckByButton()
-        Hint("该版本中不包含更新功能……")
+    ''' <summary>是否正在检查更新（防止连点或重复触发导致弹出多个窗口）。</summary>
+    Private _updateChecking As Boolean = False
+
+    Friend Async Sub UpdateCheckByButton()
+        If _updateChecking Then Return
+        _updateChecking = True
+        Try
+            '从更新服务端拉取版本信息（网络请求放后台线程，避免卡住界面）
+            Dim info = Await System.Threading.Tasks.Task.Run(Function() ModUpdate.GetLatestInfo())
+            If Not ModUpdate.IsNewer(info) Then
+                Hint("✅ 已经是最新版本")
+                Return
+            End If
+            '有新版本：交给更新窗口显示更新说明并完成下载、校验、替换、重启
+            WindowUpdate.ShowUpdate(info)
+        Catch ex As Exception
+            Hint("❌ 更新检测失败：" & ex.Message)
+        Finally
+            _updateChecking = False
+        End Try
     End Sub
 
+    Public Class UpdateInfo
+        Public Property VersionCode As Integer
+        Public Property VersionName As String
+        Public Property DownloadUrl As String
+        Public Property UpdateLog As String
+        Public Property IsForce As Boolean
+    End Class
+
+
+    ''' <summary>是否正处于“更新后等待重启”的状态。</summary>
     Friend IsUpdateWaitingRestart As Boolean = False
+
+    ''' <summary>
+    ''' 重启启动器：先拉起新进程，再结束当前进程。
+    ''' </summary>
     Public Sub UpdateRestart(TriggerRestartAndByEnd As Boolean)
+        IsUpdateWaitingRestart = False
+        If Not TriggerRestartAndByEnd Then Return
+        Try
+            Dim exePath = Diagnostics.Process.GetCurrentProcess().MainModule.FileName
+            Diagnostics.Process.Start(New Diagnostics.ProcessStartInfo(exePath) With {.UseShellExecute = True})
+        Catch ex As Exception
+            Logger.Error(ex, "重启启动器失败")
+        End Try
+        Environment.Exit(0)
     End Sub
+
+    ''' <summary>
+    ''' 等待旧进程退出后，用 NewFileName 覆盖 OldFileName 完成原地更新。
+    ''' 对应 --update &lt;旧进程 PID&gt; &lt;旧文件&gt; &lt;新文件&gt; &lt;是否重启&gt; 的启动流程。
+    ''' </summary>
     Public Sub UpdateReplace(ProcessId As Integer, OldFileName As String, NewFileName As String, TriggerRestart As Boolean)
+        '1. 等待旧进程退出，否则文件被占用无法替换
+        If ProcessId > 0 Then
+            Try
+                Dim oldProcess = Diagnostics.Process.GetProcessById(ProcessId)
+                If oldProcess IsNot Nothing AndAlso Not oldProcess.HasExited Then oldProcess.WaitForExit(1000 * 60 * 5)
+            Catch
+                '旧进程已经不在了，属于正常情况
+            End Try
+        End If
+        '2. 备份旧文件（正在运行的 exe 允许改名），再复制新文件覆盖
+        Dim backupPath = OldFileName & ".old"
+        Try
+            If IO.File.Exists(OldFileName) Then
+                If IO.File.Exists(backupPath) Then IO.File.Delete(backupPath)
+                IO.File.Move(OldFileName, backupPath)
+            End If
+            IO.File.Copy(NewFileName, OldFileName, True)
+        Catch ex As Exception
+            '失败回滚，避免启动器把自己弄丢
+            Try
+                If Not IO.File.Exists(OldFileName) AndAlso IO.File.Exists(backupPath) Then IO.File.Move(backupPath, OldFileName)
+            Catch
+            End Try
+            Logger.Error(ex, "应用启动器更新失败")
+            Return
+        End Try
+        '3. 需要时重启新版本
+        If TriggerRestart Then
+            Try
+                Diagnostics.Process.Start(New Diagnostics.ProcessStartInfo(OldFileName) With {.UseShellExecute = True})
+            Catch ex As Exception
+                Logger.Error(ex, "更新完成后重启失败")
+            End Try
+        End If
     End Sub
 
     ''' <summary>

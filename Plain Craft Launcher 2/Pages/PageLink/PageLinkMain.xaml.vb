@@ -425,12 +425,16 @@ Public Class PageLinkMain
 
     '1. 获取服务器配置
     Private Sub InitConfig(Task As LoaderTask(Of Integer, Integer))
-        UpdateLoadingPage("正在联网获取配置……", "联网获取配置")
-        If VersionBranchMain <> "Official" Then
-            Throw New Exception($"$开源版无法联网获取配置。{vbCrLf}你可以在 PCL 官方版的缓存文件夹下查看 ServerConfig 的当前内容， 并在代码中进行相应修改。")
+        If VersionBranchMain = "Official" Then
+            UpdateLoadingPage("正在联网获取配置……", "联网获取配置")
+            ServerLoader.WaitForExit(LoaderToSyncProgress:=Task)
+            If ServerConfig Is Nothing Then Throw New Exception("无法从服务器获取配置")
+        Else
+            '开源版：没有官方配置服务器，改用本地配置（PCL\LinkConfig.json）或内置默认配置
+            UpdateLoadingPage("正在读取本地联机配置……", "读取配置")
+            ServerConfig = ModLink.GetLinkConfig()
+            ModLink.WriteTemplateIfMissing()
         End If
-        ServerLoader.WaitForExit(LoaderToSyncProgress:=Task)
-        If ServerConfig Is Nothing Then Throw New Exception("无法从服务器获取配置")
         '检查是否已禁用联机功能
         Dim DisableReason = ServerConfig("Link")?("DisableReason2")?.ToString
         If Not String.IsNullOrEmpty(DisableReason) Then Throw New Exception("$" & DisableReason) 'TODO: 可能不会显示错误原因？

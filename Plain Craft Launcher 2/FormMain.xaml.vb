@@ -107,7 +107,8 @@ Public Class FormMain
             '3：BUG+ IMP* FEAT-
             '2：BUG* IMP-
             '1：BUG-
-            If LastVersion < 416 Then 'Snapshot 2.99.0.1
+            End If
+            If LastVersion < 499 Then 'Snapshot 2.99.0.1
                 FeatureList.Add(New KeyValuePair(Of Integer, String)(4, "删除：MC 下载功能相关入口"))
                 FeatureList.Add(New KeyValuePair(Of Integer, String)(1, "优化：为设置更新添加部分黑名单"))
             End If
@@ -257,11 +258,10 @@ Public Class FormMain
                 FeatureCount += 9
                 BugCount += 7
             End If
-            If LastVersion < 373 Then 'Snapshot 2.11.0
-                'FeatureList.Add(New KeyValuePair(Of Integer, String)(5, "新增：联机功能！"))
-                FeatureCount += 7
-                BugCount += 10
-            End If
+        If LastVersion < 373 Then 'Snapshot 2.11.0
+            'FeatureList.Add(New KeyValuePair(Of Integer, String)(5, "新增：联机功能！"))
+            FeatureCount += 7
+            BugCount += 10
         End If
         '整理更新日志文本
         Dim ContentList As New List(Of String)
@@ -281,7 +281,7 @@ Public Class FormMain
         '输出更新日志
         RunInNewThread(
         Sub()
-            If MyMsgBox(Content, "PCL 已更新至" & VersionDisplay, "确定", "完整更新日志") = 2 Then
+            If MyMsgBox(Content, "PCL Refined Launcher 已更新至" & VersionDisplay, "确定", "完整更新日志") = 2 Then
                 OpenWebsite("https://meloong.com/afd/a/LTCat?tab=feed")
             End If
         End Sub, "UpdateLog Output")
@@ -307,13 +307,13 @@ Public Class FormMain
         '版本隔离设置迁移
         If Not Settings.HasSaved("LaunchArgumentIndieV2") Then
             If Settings.HasSaved("LaunchArgumentIndie") Then
-                Logger.Info("从老 PCL 迁移版本隔离")
+                Logger.Info("从老 PCL Refined Launcher 迁移版本隔离")
                 Settings.Set("LaunchArgumentIndieV2", Settings.Get(Of Integer)("LaunchArgumentIndie"))
             ElseIf HasIniKey("Setup", "LaunchVersionSelect") Then
-                Logger.Info("从老 PCL 升级，但此前未调整版本隔离，使用老的版本隔离默认值")
+                Logger.Info("从老 PCL Refined Launcher 升级，但此前未调整版本隔离，使用老的版本隔离默认值")
                 Settings.Set("LaunchArgumentIndieV2", Settings.GetDefault("LaunchArgumentIndie"))
             Else
-                Logger.Info("全新的 PCL，使用新的版本隔离默认值")
+                Logger.Info("全新的 PCL Refined Launcher，使用新的版本隔离默认值")
                 Settings.Set("LaunchArgumentIndieV2", Settings.GetDefault("LaunchArgumentIndieV2"))
             End If
         End If
@@ -348,7 +348,7 @@ Public Class FormMain
         FrmLaunchRight.PageState = MyPageRight.PageStates.ContentStay
         '模式提醒
         If BuildType = BuildTypes.Debug Then Hint("[开发者模式] PCL 正以开发者模式运行，这可能会造成严重的性能下降，请务必立即向开发者反馈此问题！", HintType.Red)
-        If ModeDebug Then Hint("[调试模式] PCL 正以调试模式运行，这可能会导致性能下降，若无必要请不要开启！")
+        If ModeDebug Then Hint("[调试模式] PCL-Refined-Launcher 正以调试模式运行，这可能会导致性能下降，若无必要请不要开启！")
         '尽早执行的加载池
         McFolderListLoader.Start(0) '为了让下载已存在文件检测可以正常运行，必须跑一次；为了让启动按钮尽快可用，需要尽早执行；为了与 PageLaunchLeft 联动，需要为 0 而不是 GetUuid
 
@@ -412,7 +412,7 @@ Public Class FormMain
             Sub()
                 PanBack.RenderTransform = Nothing
                 IsWindowLoadFinished = True
-                Logger.Info($"DPI：{DPI}，系统版本：{Environment.OSVersion.VersionString}，PCL 位置：{PathExe}")
+                Logger.Info($"DPI：{DPI}，系统版本：{Environment.OSVersion.VersionString}，PCL Refined Launcher 位置：{PathExe}")
             End Sub, , True)
         }, "Form Show")
         'Timer 启动
@@ -426,8 +426,8 @@ Public Class FormMain
             If Settings.Get(Of Integer)("SystemEulaVersion") < EulaVersion Then
                 Select Case MyMsgBox(
                     If(Settings.Get(Of Integer)("SystemEulaVersion") = 0,
-                        "在使用 PCL 前，请先阅读用户协议与免责声明。",
-                        $"PCL 的用户协议与免责声明已更新。{vbCrLf}请阅读更新后的用户协议与免责声明。"),
+                        "在使用 PCL Refined Launcher 前，请先阅读用户协议与免责声明。",
+                        $"PCL Refined Launcher 的用户协议与免责声明已更新。{vbCrLf}请阅读更新后的用户协议与免责声明。"),
                         "协议授权", "同意", "拒绝", "查看用户协议与免责声明",
                         Button3Action:=Sub() OpenWebsite("https://shimo.im/docs/rGrd8pY8xWkt6ryW"))
                     Case 1
@@ -455,10 +455,7 @@ Public Class FormMain
             End Try
             '上报
             Telemetry("启动")
-            '开源版本提示
-            If VersionBranchMain = "OpenSource" Then
-                MyMsgBox($"该版本中无法使用以下特性：{vbCrLf}- CurseForge API 调用：需要自行申请 API Key，然后添加到 ModSecret.vb 的开头{vbCrLf}- 正版登录：需要自行向微软申请 Client ID，然后添加到 ModSecret.vb 的开头{vbCrLf}- 更新与联网通知：避免滥用隐患{vbCrLf}- 主题切换：这是需要赞助解锁的纪念性质的功能，别让赞助者太伤心啦……{vbCrLf}- 百宝箱：开发早期往里面塞了些开发工具，整理起来太麻烦了……", "开源版本说明")
-            End If
+            '开源版本提示：已改为主页右侧的公告栏（见 ModNotice / PageLaunchRight）
         End Sub, "初始化", ThreadPriority.Lowest)
 
         Logger.Info($"第三阶段加载用时：{GetTimeMs() - ApplicationStartTick} ms")
@@ -469,13 +466,13 @@ Public Class FormMain
         If BuildType = BuildTypes.Snapshot Then
             Select Case Settings.Get(Of Integer)("SystemCount")
                 Case 1
-                    MyMsgBox("欢迎使用 PCL 快照版！" & vbCrLf &
+                    MyMsgBox("欢迎使用 PCL Refined Launcher 快照版！" & vbCrLf &
                              "快照版包含尚未在正式版发布的测试性功能，仅用于赞助者本人尝鲜。所以请不要发给其他人或者用于制作整合包哦！" & vbCrLf &
                              "如果你并非通过赞助或赞助者本人邀请进群获得的本程序，那么可能是有人在违规传播，记得提醒他一下啦。", "快照版使用说明")
             End Select
             If Settings.Get(Of Integer)("SystemCount") >= 99 Then
                 If ThemeUnlock(6, False) Then
-                    MyMsgBox("你已经使用了 99 次 PCL 啦，感谢你长期以来的支持！" & vbCrLf &
+                    MyMsgBox("你已经使用了 99 次 PCL Refined Launcher 啦，感谢你长期以来的支持！" & vbCrLf &
                              "隐藏主题 铁杆粉 已解锁！", "提示")
                 End If
             End If
@@ -507,7 +504,7 @@ Public Class FormMain
             Dim UnlockedTheme As New List(Of String)(Settings.Get(Of String)("UiLauncherThemeHide2").ToString.Split("|"))
             UnlockedTheme.Remove("13")
             Settings.Set("UiLauncherThemeHide2", UnlockedTheme.Join("|"c))
-            MyMsgBox("由于新版 PCL 修改了欧皇彩的解锁方式，你需要重新解锁欧皇彩。" & vbCrLf &
+            MyMsgBox("由于新版 PCL Refined Launcher 修改了欧皇彩的解锁方式，你需要重新解锁欧皇彩。" & vbCrLf &
                      "多谢各位的理解啦！", "重新解锁提醒")
         End If
         '重置滑稽彩
@@ -515,7 +512,7 @@ Public Class FormMain
             Dim UnlockedTheme As New List(Of String)(Settings.Get(Of String)("UiLauncherThemeHide2").ToString.Split("|"))
             UnlockedTheme.Remove("12")
             Settings.Set("UiLauncherThemeHide2", UnlockedTheme.Join("|"c))
-            MyMsgBox("由于新版 PCL 修改了滑稽彩的解锁方式，你需要重新解锁滑稽彩。" & vbCrLf &
+            MyMsgBox("由于新版 PCL Refined Launcher 修改了滑稽彩的解锁方式，你需要重新解锁滑稽彩。" & vbCrLf &
                      "多谢各位的理解啦！", "重新解锁提醒")
         End If
         '移动自定义皮肤
@@ -589,7 +586,7 @@ Public Class FormMain
             End Sub, "强行停止下载任务")
         End If
         '关闭联机？
-        If FrmLinkMain?.TryExit(Not SendWarning, True) Then Return
+        If FrmLinkMain?.TryExit(Not SendWarning, False) Then Return
         '关闭
         RunInUiWait(
         Sub()
@@ -631,9 +628,9 @@ Public Class FormMain
         If ReturnCode = ProcessReturnValues.Exception Then
             If Not IsLogShown Then
                 FeedbackInfo()
-                Logger.Info("请在 https://github.com/Meloong-Git/PCL/issues 提交错误报告，以便于作者解决此问题！")
+                Logger.Info("请在 https://github.com/paocai159/PCL-Refined-Launcher/issues 提交错误报告，以便于作者解决此问题！")
                 IsLogShown = True
-                StartProcess(Paths.Base & "PCL\Log1.txt")
+                StartProcess(Paths.Base & "PCL-Refined-Launche\Log1.txt")
             End If
             Thread.Sleep(500) '防止 PCL 在记事本打开前就被掐掉
         End If

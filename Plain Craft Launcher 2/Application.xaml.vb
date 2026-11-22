@@ -9,10 +9,55 @@ Public Class Application
             '核心初始化
             MeloongCore.Main.Init("PCL")
             MeloongCore.Wpf.Main.Init()
-            If Not (e.Args.Contains("--update") OrElse e.Args.Contains("--gpu") OrElse e.Args.Contains("--memory")) Then '若是通过命令行调用，则不检查单例、不轮换日志（#9137）
+            If Not (e.Args.Contains("--update") OrElse e.Args.Contains("--gpu") OrElse e.Args.Contains("--memory") OrElse ModUpdate.IsUpdatedLaunch(e.Args)) Then '若是通过命令行调用，则不检查单例、不轮换日志（#9137）
                 WaitingMutex(e)
                 Logger.Instance = New PclLogger With {.logFolder = Paths.BaseThenName, .MinLevel = If(ModeDebug, LogLevel.Trace, LogLevel.Info)}
             End If
+            '初始化启动器自更新：清理上次更新的残留文件，并把版本号交给更新模块
+            '注意：必须放在单例检查之后，否则第二个实例也会弹更新窗口（会出现两个更新提示）
+            Try
+                ModUpdate.CleanupAfterUpdate()
+                ModUpdate.CurrentVersion = VersionBaseName
+                ModUpdate.PassUpdatedVersion = True
+                '本地整数版本号，直接由程序集版本换算（0.0.5.1 → 501），不用再手写
+                ModUpdate.CurrentVersionCode = ModUpdate.VersionCodeFromVersionString(VersionBaseName)
+                ModUpdate.InfoSources.Clear()
+                ModUpdate.InfoSources.Add("https://pcl-refined-launcher-update.pages.dev/version.json?t=" & DateTime.Now.Ticks.ToString())
+                '等主窗口加载完再检查，避免拖慢启动；有新版才弹窗，且同一时间只会有一个窗口
+                WindowUpdate.LogAction = Sub(s) Logger.Info(s)
+                If Not (e.Args.Contains("--update") OrElse e.Args.Contains("--gpu") OrElse e.Args.Contains("--memory") OrElse ModUpdate.IsUpdatedLaunch(e.Args)) Then
+                    Global.System.Threading.Tasks.Task.Delay(2000).ContinueWith(Sub() WindowUpdate.RunIfUpdateAvailable())
+                End If
+                '更新完成后的提示：只在更新后第一次打开时显示一次
+                If ModUpdate.IsUpdatedLaunch(e.Args) Then
+                    Dim newVersion = ModUpdate.GetUpdatedVersion(e.Args)
+                    If String.IsNullOrWhiteSpace(newVersion) Then newVersion = VersionBaseName
+                    '用文件记录已提示过的版本：更新后第一次打开弹提示，之后再打开就不弹
+                    Dim hintFile As String = Paths.BaseThenName & "UpdateHintVersion.txt"
+                    Dim alreadyShown As String = ""
+                    Try
+                        If FileUtils.Exists(hintFile) Then alreadyShown = IO.File.ReadAllText(hintFile).Trim()
+                    Catch
+                    End Try
+                    Try
+                        IO.File.WriteAllText(hintFile, newVersion)
+                    Catch
+                    End Try
+                    If alreadyShown <> newVersion Then
+                        Global.System.Threading.Tasks.Task.Delay(2500).ContinueWith(
+                            Sub()
+                                Try
+                                    Hint("✅ 已更新至 " & newVersion & "，更新完成！", HintType.Green, True)
+                                Catch ex As Exception
+                                    Logger.Warn(ex, "显示更新完成提示失败")
+                                End Try
+                            End Sub)
+                    End If
+                    If Logger.Instance IsNot Nothing Then Logger.Info("检测到更新完成启动，版本：" & newVersion & If(alreadyShown = newVersion, "（已提示过，不再重复）", ""))
+                End If
+            Catch ex As Exception
+                Logger.Warn(ex, "初始化启动器自更新失败")
+            End Try
             '提升主线程优先级
             Thread.CurrentThread.Priority = ThreadPriority.Highest
             '执行开发版测试
@@ -150,6 +195,8 @@ RetryCacheCheck:
     ''' </summary>
     Private Shared Sub WaitingMutex(e As StartupEventArgs)
         If BuildType = BuildTypes.Debug Then Return
+        '更新后重启的新进程要立刻启动成功，不能因为旧进程还没退干净就自杀
+        If e.Args.Contains("--updated") Then Return
         Try
             Dim MutexCreatedNew As Boolean
             PclMutex = New Mutex(True, "PCL_SingletonMutex", MutexCreatedNew)
