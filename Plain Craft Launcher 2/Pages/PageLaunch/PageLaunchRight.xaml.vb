@@ -8,13 +8,20 @@ Public Class PageLaunchRight
         PanLog.Visibility = ModeDebug.ToVisibility
         '公告栏
         LabNoticeTitle.Text = ModNotice.NoticeTitle
+        '标题整体下移、与正文左对齐，并放大让其更醒目
+        Try
+            PanNotice.MainTextBlock.Margin = New Thickness(25, 20, 23, 0)
+            PanNotice.MainTextBlock.FontSize = 15.5
+        Catch ex As Exception
+            Logger.Warn(ex, "调整公告标题样式失败")
+        End Try
         '在「公告」标题后面紧跟 NEW 标记
         If ModNotice.NoticeIsNew AndAlso PanNotice.Inlines.Count = 1 Then
             PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run("  "))
             PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run(" NEW ") With {
                 .Background = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFF, &HF1, &HE6)),
                 .Foreground = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFA, &H64, &H0)),
-                .FontSize = 10.5,
+                .FontSize = 12.5,
                 .FontWeight = Global.System.Windows.FontWeights.Bold,
                 .BaselineAlignment = Global.System.Windows.BaselineAlignment.Center})
         End If

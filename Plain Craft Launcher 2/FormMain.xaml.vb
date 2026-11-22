@@ -463,6 +463,18 @@ Public Class FormMain
     '根据打开次数触发的事件
     Private Sub RunCountSub()
         Settings.Set("SystemCount", Settings.Get(Of Integer)("SystemCount") + 1)
+        '首次打开时的欢迎标语（PCL 原版风格，只显示一次）
+        Dim WelcomeFlag As String = Paths.BaseThenName & "FirstRun.flag"
+        If Not IO.File.Exists(WelcomeFlag) Then
+            Try
+                IO.File.WriteAllText(WelcomeFlag, VersionBaseName)
+            Catch ex As Exception
+                Logger.Warn(ex, "写入首次启动标记失败")
+            End Try
+            MyMsgBox("欢迎使用 PCL！" & vbCrLf &
+                     "PCL Refined Launcher 基于开源项目 PCL 二次开发，完全免费、无广告，也不会收集你的个人隐私。" & vbCrLf &
+                     "如果它帮到了你，欢迎到 GitHub 仓库点个 Star 支持一下！", "欢迎使用")
+        End If
         If BuildType = BuildTypes.Snapshot Then
             Select Case Settings.Get(Of Integer)("SystemCount")
                 Case 1
@@ -752,6 +764,7 @@ Public Class FormMain
                 ShapeTitleLogo.Visibility = Visibility.Collapsed
                 LabTitleLogo.Visibility = Visibility.Collapsed
                 ImageTitleLogo.Visibility = Visibility.Collapsed
+                BadgeTitleRL.Visibility = Visibility.Collapsed '和 PCL 标志一起隐藏
                 If Not IsNothing(FrmSetupUI) Then 'TODO: 和 FrmSetupUI 解耦
                     FrmSetupUI.CheckLogoLeft.Visibility = Visibility.Visible
                     FrmSetupUI.PanLogoText.Visibility = Visibility.Collapsed
@@ -759,6 +772,7 @@ Public Class FormMain
                 End If
             Case 1 '默认
                 ShapeTitleLogo.Visibility = Visibility.Visible
+                BadgeTitleRL.Visibility = Visibility.Visible 'PCL 标志显示时才显示 RL
                 LabTitleLogo.Visibility = Visibility.Collapsed
                 ImageTitleLogo.Visibility = Visibility.Collapsed
                 If Not IsNothing(FrmSetupUI) Then
@@ -769,6 +783,7 @@ Public Class FormMain
             Case 2 '文本
                 ShapeTitleLogo.Visibility = Visibility.Collapsed
                 LabTitleLogo.Visibility = Visibility.Visible
+                BadgeTitleRL.Visibility = Visibility.Collapsed
                 ImageTitleLogo.Visibility = Visibility.Collapsed
                 If Not IsNothing(FrmSetupUI) Then
                     FrmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed
@@ -779,6 +794,7 @@ Public Class FormMain
                 ShapeTitleLogo.Visibility = Visibility.Collapsed
                 LabTitleLogo.Visibility = Visibility.Collapsed
                 ImageTitleLogo.Visibility = Visibility.Visible
+                BadgeTitleRL.Visibility = Visibility.Collapsed
                 If Not IsNothing(FrmSetupUI) Then
                     FrmSetupUI.CheckLogoLeft.Visibility = Visibility.Collapsed
                     FrmSetupUI.PanLogoText.Visibility = Visibility.Collapsed

@@ -8,7 +8,7 @@
     <local:MyScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" x:Name="PanBack">
         <StackPanel Name="PanMain" Margin="25,25,25,10" Grid.IsSharedSizeScope="True">
             <local:MyCard Margin="0,0,0,15" Title="公告" x:Name="PanNotice">
-                <StackPanel Margin="25,34,23,15">
+                <StackPanel Margin="25,46,23,15">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock x:Name="LabNoticeTitle" FontSize="14" FontWeight="SemiBold"
                                    VerticalAlignment="Center" TextWrapping="Wrap"
