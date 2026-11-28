@@ -623,20 +623,40 @@ Public Module ModUpdate
     Private Function WriteSwapScript(extractDir As String, srcRoot As String, target As String, args As String) As String
         Dim pid = Diagnostics.Process.GetCurrentProcess().Id
         Dim script = Path.Combine(StagingRoot, "apply_update.cmd")
+        Dim logPath = Path.Combine(StagingRoot, "apply.log")
+        Dim targetDir = Path.GetDirectoryName(target)
         Directory.CreateDirectory(StagingRoot)
         Dim sb As New StringBuilder()
         sb.AppendLine("@echo off")
-        sb.AppendLine("chcp 65001 >nul")
         sb.AppendLine("setlocal")
+        sb.AppendLine("set ""LOG=" & logPath & """")
+        sb.AppendLine("echo [%date% %time%] apply start, pid=" & pid & " >> ""%LOG%""")
         sb.AppendLine(":waitloop")
-        sb.AppendLine("tasklist /FI ""PID eq " & pid & """ 2>nul | find """ & pid & """ >nul")
+        sb.AppendLine("tasklist /FI ""PID eq " & pid & """ 2>nul | find /I """ & pid & """ >nul")
         sb.AppendLine("if not errorlevel 1 (")
         sb.AppendLine("  timeout /t 1 /nobreak >nul")
         sb.AppendLine("  goto waitloop")
         sb.AppendLine(")")
-        sb.AppendLine("timeout /t 1 /nobreak >nul")
-        sb.AppendLine("xcopy """ & srcRoot & "\*"" """ & Path.GetDirectoryName(target) & "\"" /E /Y /I /Q >nul")
-        sb.AppendLine("start """" """ & target & """ " & args)
+        sb.AppendLine("echo [%date% %time%] process exited, copying files >> ""%LOG%""")
+        sb.AppendLine("timeout /t 2 /nobreak >nul")
+        '覆盖文件最多重试 3 次（旧进程可能还没完全释放文件句柄、或被杀软短暂占用）
+        For attempt = 1 To 3
+            sb.AppendLine(":copy" & attempt)
+            sb.AppendLine("xcopy """ & srcRoot & "\*"" """ & targetDir & "\"" /E /Y /I /Q >> ""%LOG%"" 2>&1")
+            If attempt < 3 Then
+                sb.AppendLine("if errorlevel 1 (")
+                sb.AppendLine("  echo [%date% %time%] xcopy failed, retry " & (attempt + 1) & " >> ""%LOG%""")
+                sb.AppendLine("  timeout /t 2 /nobreak >nul")
+                sb.AppendLine("  goto copy" & (attempt + 1))
+                sb.AppendLine(")")
+                sb.AppendLine("goto launch")
+            Else
+                sb.AppendLine("if errorlevel 1 echo [%date% %time%] xcopy failed after retries >> ""%LOG%""")
+            End If
+        Next
+        sb.AppendLine(":launch")
+        sb.AppendLine("echo [%date% %time%] launching new version >> ""%LOG%""")
+        sb.AppendLine("start """" /D """ & targetDir & """ """ & target & """ " & args)
         sb.AppendLine("rmdir /S /Q """ & Path.GetDirectoryName(extractDir) & """ >nul 2>nul")
         sb.AppendLine("del /F /Q ""%~f0"" >nul 2>nul")
         File.WriteAllText(script, sb.ToString(), Encoding.Default)
@@ -741,12 +761,26 @@ Public Module ModUpdate
         End Using
     End Function
 
+    ''' <summary>
+    ''' 把任意名字（可能含中文，如“PCL Refined Launcher 正式版1.0.4.1”）转成纯 ASCII 的安全文件名。
+    ''' 必须保证纯 ASCII：批处理脚本按系统编码读写，路径里带中文会让 xcopy 找不到文件夹，导致“下载完替换不了”。
+    ''' </summary>
     Private Function SafeName(name As String) As String
         If String.IsNullOrWhiteSpace(name) Then Return "update"
-        For Each c In Path.GetInvalidFileNameChars()
-            name = name.Replace(c, "_"c)
+        Dim sb As New StringBuilder()
+        For Each c As Char In name
+            If (c >= "a"c AndAlso c <= "z"c) OrElse (c >= "A"c AndAlso c <= "Z"c) OrElse
+               (c >= "0"c AndAlso c <= "9"c) OrElse c = "."c OrElse c = "_"c OrElse c = "-"c Then
+                sb.Append(c)
+            Else
+                sb.Append("_"c)
+            End If
         Next
-        Return name
+        Dim result As String = sb.ToString().Trim("_"c, "."c, " "c)
+        If result.Length = 0 Then Return "update"
+        If result.Length > 80 Then result = result.Substring(0, 80).Trim("_"c, "."c, " "c)
+        If result.Length = 0 Then Return "update"
+        Return result
     End Function
 
     Public Function FormatSize(bytes As Long) As String
