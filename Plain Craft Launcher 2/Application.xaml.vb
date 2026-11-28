@@ -58,6 +58,12 @@ Public Class Application
             Catch ex As Exception
                 Logger.Warn(ex, "初始化启动器自更新失败")
             End Try
+            '主页公告的 NEW 标记：只在更新完成启动或首次打开启动器时显示
+            Try
+                ModAnnouncement.ShowNew = ModUpdate.IsUpdatedLaunch(e.Args) OrElse Not IO.File.Exists(Paths.BaseThenName & "FirstRun.flag")
+            Catch ex As Exception
+                Logger.Warn(ex, "初始化公告 NEW 标记失败")
+            End Try
             '提升主线程优先级
             Thread.CurrentThread.Priority = ThreadPriority.Highest
             '执行开发版测试

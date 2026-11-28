@@ -10,7 +10,7 @@ Public Module ModBase
         Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() '显示用版本名
     Public Const CommitHash As String = "" 'Commit Hash，由 GitHub Workflow 自动替换
     '版本号：主×1000000 + 次×10000 + 修订×100 + 编译，与 AssemblyVersion 1.0.4.0 对应
-    Public Const VersionCode As Integer = 1000401
+    Public Const VersionCode As Integer = 1000500
 
     '版本信息
     Public ReadOnly VersionDisplay As String = BuildTypeDisplay & " " & VersionBaseName

@@ -217,6 +217,7 @@
     <Compile Include="Modules\Minecraft\ModModpack.vb" />
     <Compile Include="Modules\ThirdParty\DragHelper.vb" />
     <Compile Include="Modules\WindowUpdate.vb" />
+    <Compile Include="Modules\ModAnnouncement.vb" />
     <Compile Include="Modules\ModLink.vb" />
     <Compile Include="Modules\ModNotice.vb" />
     <Compile Include="Modules\ModUpdate.vb" />

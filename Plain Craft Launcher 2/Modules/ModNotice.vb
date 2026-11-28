@@ -23,7 +23,7 @@ Public Module ModNotice
         "CurseForge API 调用：暂未申请 API Key",
         "正版登录：暂未向微软申请 Client ID",
         "主题切换：需要赞助解锁的纪念性质功能",
-        "当前为正式版 1.0.4.1，问题请到 GitHub 仓库反馈"
+        "当前为正式版 1.0.5.0，问题请到 GitHub 仓库反馈"
     }
 
     ''' <summary>拼接成一段可直接显示的文本。</summary>

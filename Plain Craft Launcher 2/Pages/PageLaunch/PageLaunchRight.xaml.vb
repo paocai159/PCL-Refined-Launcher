@@ -3,37 +3,187 @@ Imports System.Windows.Threading
 Public Class PageLaunchRight
     Implements IRefreshable, IDispatcherUnhandledException
 
+    ''' <summary>公告标题后的 NEW / 刷新按钮是否已经添加过（避免页面切换时重复添加）。</summary>
+    Private _noticeInlineReady As Boolean = False
+    ''' <summary>公告栏的刷新图标（用于旋转动画）。</summary>
+    Private _refreshGlyph As Global.System.Windows.Controls.TextBlock = Nothing
+
     Private Sub Init() Handles Me.Loaded
         PanBack.ScrollToHome()
         PanLog.Visibility = ModeDebug.ToVisibility
-        '公告栏
+        '公告栏：先显示加载中，拿到远程公告后再替换
         LabNoticeTitle.Text = ModNotice.NoticeTitle
         '标题整体下移、与正文左对齐，并放大让其更醒目
         Try
             PanNotice.MainTextBlock.Margin = New Thickness(25, 20, 23, 0)
             PanNotice.MainTextBlock.FontSize = 15.5
+            'MyCard 默认把标题设为不可命中（IsHitTestVisible=False），这里要放开，否则标题里的刷新按钮点不动
+            PanNotice.MainTextBlock.IsHitTestVisible = True
         Catch ex As Exception
             Logger.Warn(ex, "调整公告标题样式失败")
         End Try
-        '在「公告」标题后面紧跟 NEW 标记
-        If ModNotice.NoticeIsNew AndAlso PanNotice.Inlines.Count = 1 Then
-            PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run("  "))
-            PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run(" NEW ") With {
-                .Background = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFF, &HF1, &HE6)),
-                .Foreground = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFA, &H64, &H0)),
-                .FontSize = 12.5,
-                .FontWeight = Global.System.Windows.FontWeights.Bold,
-                .BaselineAlignment = Global.System.Windows.BaselineAlignment.Center})
+        'NEW 标记与刷新按钮只添加一次：页面切换会再次触发 Loaded，否则每切换一次就多一个
+        If Not _noticeInlineReady Then
+            _noticeInlineReady = True
+            If ModAnnouncement.ShowNew AndAlso PanNotice.Inlines.Count = 1 Then
+                PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run("  "))
+                PanNotice.Inlines.Add(New Global.System.Windows.Documents.Run(" NEW ") With {
+                    .Background = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFF, &HF1, &HE6)),
+                    .Foreground = New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HFA, &H64, &H0)),
+                    .FontSize = 12.5,
+                    .FontWeight = Global.System.Windows.FontWeights.Bold,
+                    .BaselineAlignment = Global.System.Windows.BaselineAlignment.Center})
+            End If
+            AddRefreshInline()
         End If
-        LabFeature.Text = ModNotice.NoticeBadge
-        BadgeFeature.Visibility = If(String.IsNullOrWhiteSpace(ModNotice.NoticeBadge), Visibility.Collapsed, Visibility.Visible)
-        LabNotice.Text = ModNotice.GetNoticeText()
-        PanNotice.Visibility = If(String.IsNullOrWhiteSpace(ModNotice.GetNoticeText()), Visibility.Collapsed, Visibility.Visible)
+        '先显示加载中，等远程公告拿到后再替换内容
+        LabNoticeTime.Text = ""
+        LabNotice.Text = "公告加载中……"
+        PanNotice.Visibility = Visibility.Visible
+        FetchAnnouncementAsync()
         '快照版提示
         PanHint.Visibility =
             (BuildType <> BuildTypes.Release AndAlso VersionBranchMain = "Official" AndAlso
              CurrentRank < DonationRank.Rank23 AndAlso Not Settings.Get(Of Boolean)("HintSnapshot")).ToVisibility
     End Sub
+
+#Region "公告"
+
+    ''' <summary>在后台线程拉取远程公告，成功后回到 UI 线程刷新公告栏；失败显示错误提示。</summary>
+    Private Sub FetchAnnouncementAsync()
+        Global.System.Threading.Tasks.Task.Run(
+            Sub()
+                Try
+                    Dim Item As ModAnnouncement.AnnounceItem = ModAnnouncement.Fetch()
+                    RunInUi(Sub() ApplyAnnouncement(Item))
+                Catch ex As Exception
+                    Logger.Warn(ex, "获取远程公告失败")
+                    RunInUi(Sub() ShowAnnouncementError())
+                End Try
+            End Sub)
+    End Sub
+
+    ''' <summary>把公告内容显示到公告栏。必须在 UI 线程调用。</summary>
+    Private Sub ApplyAnnouncement(Item As ModAnnouncement.AnnounceItem)
+        If Item Is Nothing Then Return
+        StopRefreshSpin()
+        LabNoticeTitle.Text = Item.Title
+        Dim Text As String = Item.Content
+        If Not String.IsNullOrWhiteSpace(Item.Link) Then
+            Text &= vbCrLf & If(String.IsNullOrWhiteSpace(Item.LinkText), Item.Link, Item.LinkText & "：" & Item.Link)
+        End If
+        LabNotice.Text = Text
+        LabNoticeTime.Text = Item.Time
+        PanNotice.Visibility = Visibility.Visible
+    End Sub
+
+    ''' <summary>公告加载失败时的提示。必须在 UI 线程调用。</summary>
+    Private Sub ShowAnnouncementError()
+        StopRefreshSpin()
+        LabNoticeTime.Text = ""
+        LabNotice.Text = "公告加载失败，请检查网络连接或稍后再试。" & vbCrLf & "（点击标题后的刷新按钮可重新获取）"
+        PanNotice.Visibility = Visibility.Visible
+    End Sub
+
+    ''' <summary>点刷新按钮：进入加载中状态、旋转图标并真正重新拉取公告。</summary>
+    Private Sub ReloadAnnouncement()
+        StartRefreshSpin()
+        LabNoticeTime.Text = ""
+        LabNotice.Text = "公告加载中……"
+        FetchAnnouncementAsync()
+    End Sub
+
+    ''' <summary>让刷新图标转起来，作为正在刷新的视觉反馈。</summary>
+    Private Sub StartRefreshSpin()
+        If _refreshGlyph Is Nothing Then Return
+        Try
+            Dim Rt As Global.System.Windows.Media.RotateTransform = TryCast(_refreshGlyph.RenderTransform, Global.System.Windows.Media.RotateTransform)
+            If Rt Is Nothing Then Return
+            Dim Anim As New Global.System.Windows.Media.Animation.DoubleAnimation(0, 360,
+                New Global.System.Windows.Duration(Global.System.TimeSpan.FromMilliseconds(700)))
+            Anim.RepeatBehavior = Global.System.Windows.Media.Animation.RepeatBehavior.Forever
+            Rt.BeginAnimation(Global.System.Windows.Media.RotateTransform.AngleProperty, Anim)
+        Catch ex As Exception
+            Logger.Warn(ex, "启动刷新动画失败")
+        End Try
+    End Sub
+
+    ''' <summary>停止刷新图标的旋转。</summary>
+    Private Sub StopRefreshSpin()
+        If _refreshGlyph Is Nothing Then Return
+        Try
+            Dim Rt As Global.System.Windows.Media.RotateTransform = TryCast(_refreshGlyph.RenderTransform, Global.System.Windows.Media.RotateTransform)
+            If Rt IsNot Nothing Then Rt.BeginAnimation(Global.System.Windows.Media.RotateTransform.AngleProperty, Nothing)
+        Catch ex As Exception
+            Logger.Warn(ex, "停止刷新动画失败")
+        End Try
+    End Sub
+
+    ''' <summary>在「公告」标题行末尾追加一个刷新按钮（带悬停/按下反馈，点击后旋转）。</summary>
+    Private Sub AddRefreshInline()
+        Try
+            '已经加过刷新按钮就不再重复添加
+            For Each Inline As Global.System.Windows.Documents.Inline In PanNotice.Inlines
+                If TypeOf Inline Is Global.System.Windows.Documents.InlineUIContainer Then Return
+            Next
+            Dim Glyph As New Global.System.Windows.Controls.TextBlock With {
+                .Text = ChrW(&HE72C),
+                .FontFamily = New Global.System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+                .FontSize = 12,
+                .VerticalAlignment = Global.System.Windows.VerticalAlignment.Center,
+                .RenderTransformOrigin = New Global.System.Windows.Point(0.5, 0.5)
+            }
+            Glyph.RenderTransform = New Global.System.Windows.Media.RotateTransform(0)
+            Dim Btn As New Global.System.Windows.Controls.Button With {
+                .Content = Glyph,
+                .Background = Global.System.Windows.Media.Brushes.Transparent,
+                .BorderThickness = New Global.System.Windows.Thickness(0),
+                .Padding = New Global.System.Windows.Thickness(5, 2, 5, 2),
+                .Margin = New Global.System.Windows.Thickness(3, 0, 0, 0),
+                .Cursor = Global.System.Windows.Input.Cursors.Hand,
+                .Focusable = False,
+                .ToolTip = "刷新公告",
+                .VerticalAlignment = Global.System.Windows.VerticalAlignment.Center,
+                .Template = CreateRefreshButtonTemplate()
+            }
+            AddHandler Btn.Click, Sub(sender As Object, ev As Global.System.Windows.RoutedEventArgs) ReloadAnnouncement()
+            _refreshGlyph = Glyph
+            PanNotice.Inlines.Add(New Global.System.Windows.Documents.InlineUIContainer(Btn) With {
+                .BaselineAlignment = Global.System.Windows.BaselineAlignment.Center})
+        Catch ex As Exception
+            Logger.Warn(ex, "添加公告刷新按钮失败")
+        End Try
+    End Sub
+
+    ''' <summary>刷新按钮的样式模板：悬停浅蓝底、按下更深的蓝底，带圆角。</summary>
+    Private Function CreateRefreshButtonTemplate() As Global.System.Windows.Controls.ControlTemplate
+        Dim Tmpl As New Global.System.Windows.Controls.ControlTemplate(GetType(Global.System.Windows.Controls.Button))
+        Dim Bd As New Global.System.Windows.FrameworkElementFactory(GetType(Global.System.Windows.Controls.Border))
+        Bd.Name = "bdRefresh"
+        Bd.SetValue(Global.System.Windows.Controls.Border.CornerRadiusProperty, New Global.System.Windows.CornerRadius(5))
+        Bd.SetValue(Global.System.Windows.Controls.Border.BackgroundProperty,
+            New Global.System.Windows.TemplateBindingExtension(Global.System.Windows.Controls.Control.BackgroundProperty))
+        Dim Pst As New Global.System.Windows.FrameworkElementFactory(GetType(Global.System.Windows.Controls.ContentPresenter))
+        Pst.SetValue(Global.System.Windows.Controls.ContentPresenter.HorizontalAlignmentProperty, Global.System.Windows.HorizontalAlignment.Center)
+        Pst.SetValue(Global.System.Windows.Controls.ContentPresenter.VerticalAlignmentProperty, Global.System.Windows.VerticalAlignment.Center)
+        Bd.AppendChild(Pst)
+        Tmpl.VisualTree = Bd
+        Dim TgHover As New Global.System.Windows.Trigger
+        TgHover.Property = Global.System.Windows.Controls.Button.IsMouseOverProperty
+        TgHover.Value = True
+        TgHover.Setters.Add(New Global.System.Windows.Setter(Global.System.Windows.Controls.Border.BackgroundProperty,
+            New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HDC, &HEB, &HFC)), "bdRefresh"))
+        Tmpl.Triggers.Add(TgHover)
+        Dim TgPressed As New Global.System.Windows.Trigger
+        TgPressed.Property = Global.System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty
+        TgPressed.Value = True
+        TgPressed.Setters.Add(New Global.System.Windows.Setter(Global.System.Windows.Controls.Border.BackgroundProperty,
+            New Global.System.Windows.Media.SolidColorBrush(Global.System.Windows.Media.Color.FromRgb(&HC6, &HDD, &HFA)), "bdRefresh"))
+        Tmpl.Triggers.Add(TgPressed)
+        Return Tmpl
+    End Function
+
+#End Region
 
 #Region "主页"
 
